@@ -1,4 +1,22 @@
 #' @export
+solve.tbl_ddf <- function(a, b, ...) {
+  if (is_missing(b)) {
+    wrap_dibble(solve)(a, ...)
+  } else {
+    wrap_dibble(solve)(a, b, ...)
+  }
+}
+
+#' @export
+solve.grouped_ddf <- function(a, b, ...) {
+  if (is_missing(b)) {
+    wrap_dibble(solve)(a, ...)
+  } else {
+    wrap_dibble(solve)(a, b, ...)
+  }
+}
+
+#' @export
 solve.ddf_col <- function(a, b, ...) {
   if (is_missing(b)) {
     dim_names <- dimnames(a)
@@ -40,30 +58,37 @@ diag <- function(x, ...) {
 
 #' @rdname diag
 #' @export
-diag.default <- function(x = 1, nrow, ncol,
-                         names = TRUE, ...) {
-  if (is.matrix(x)) {
-    base::diag(x,
-               names = names, ...)
-  } else {
-    base::diag(x, nrow, ncol, names)
+diag.default <- function(x = 1, nrow, ncol, names, ...) {
+  args <- list(x = x)
+
+  if (!is_missing(nrow)) {
+    args <- c(args,
+              list(nrow = nrow))
   }
+
+  if (!is_missing(ncol)) {
+    args <- c(args,
+              list(ncol = ncol))
+  }
+
+  if (!is_missing(names)) {
+    args <- c(args,
+              list(names = names))
+  }
+
+  exec(base::diag, !!!args)
 }
 
 #' @rdname diag
 #' @export
 diag.tbl_ddf <- function(x, axes, ...) {
-  diag_dibble(x, axes, ...)
+  wrap_dibble(diag)(x, axes, ...)
 }
 
 #' @rdname diag
 #' @export
 diag.grouped_ddf <- function(x, axes, ...) {
-  diag_dibble(x, axes, ...)
-}
-
-diag_dibble <- function(x, axes, ...) {
-  diag(as_ddf_col(x), axes, ...)
+  wrap_dibble(diag)(x, axes, ...)
 }
 
 #' @rdname diag
@@ -111,8 +136,8 @@ diag.ddf_col <- function(x, axes, ...) {
 #' @export
 `diag<-.tbl_ddf` <- function(x, ..., value) {
   nm <- colnames(x)
-  out <- `diag<-_dibble`(x, ..., value)
-  dibble(!!nm := out)
+  x <- wrap_dibble(`diag<-`)(x, ..., value)
+  dibble(!!nm := x)
 }
 
 #' @rdname diag
@@ -120,13 +145,9 @@ diag.ddf_col <- function(x, axes, ...) {
 `diag<-.grouped_ddf` <- function(x, ..., value) {
   axes <- group_vars(x)
   nm <- colnames(x)
-  out <- `diag<-_dibble`(x, ..., value)
-  out <- dibble(!!nm := out)
-  group_by(out, dplyr::all_of(axes))
-}
-
-`diag<-_dibble` <- function(x, ..., value) {
-  `diag<-`(as_ddf_col(x), ..., value)
+  x <- wrap_dibble(`diag<-`)(x, ..., value)
+  x <- dibble(!!nm := x)
+  group_by(x, dplyr::all_of(axes))
 }
 
 #' @rdname diag

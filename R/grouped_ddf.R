@@ -25,7 +25,7 @@ group_vars.grouped_ddf <- function(x) {
 group_by.tbl_ddf <- function(.data, ...) {
   dim_names <- dimnames(.data)
   axes <- names(dim_names)
-  dim <- list_sizes(dim_names)
+  dim <- list_sizes_unnamed(dim_names)
   size <- prod(dim)
 
   loc <- tidyselect::eval_select(expr(c(...)), dim_names)
@@ -35,7 +35,7 @@ group_by.tbl_ddf <- function(.data, ...) {
   )
 
   group_dim_names <- dim_names[loc]
-  group_dim <- list_sizes(group_dim_names)
+  group_dim <- list_sizes_unnamed(group_dim_names)
 
   dim_names <- dim_names[-loc]
   dim <- dim[-loc]
@@ -57,7 +57,7 @@ group_by.tbl_ddf <- function(.data, ...) {
 ungroup.grouped_ddf <- function(x, ...) {
   dim_names <- dimnames(x)
   axes <- names(dim_names)
-  dim <- list_sizes(dim_names)
+  dim <- list_sizes_unnamed(dim_names)
 
   group_axes <- group_vars(x)
 
@@ -82,12 +82,12 @@ ungroup.grouped_ddf <- function(x, ...) {
 
 #' @export
 as.array.grouped_ddf <- function(x, ...) {
-  as.array(as_ddf_col(x), ...)
+  wrap_dibble(as.array)(x, ...)
 }
 
 #' @export
 as.table.grouped_ddf <- function(x, ...) {
-  as.table(as_ddf_col(x), ...)
+  wrap_dibble(as.table)(x, ...)
 }
 
 #' @export
@@ -115,6 +115,32 @@ dim.grouped_ddf <- function(x) {
 as_tibble.grouped_ddf <- function(x, ...) {
   as_tibble(ungroup(x), ...)
 }
+
+#' @export
+`!.grouped_ddf` <- function(x) {
+  wrap_dibble(`!`)(x)
+}
+
+#' @export
+is.finite.grouped_ddf <- function(x) {
+  wrap_dibble(is.finite)(x)
+}
+
+#' @export
+is.infinite.grouped_ddf <- function(x) {
+  wrap_dibble(is.infinite)(x)
+}
+
+#' @export
+is.na.grouped_ddf <- function(x) {
+  wrap_dibble(is.na)(x)
+}
+
+#' @export
+is.nan.grouped_ddf <- function(x) {
+  wrap_dibble(is.nan)(x)
+}
+
 
 
 
@@ -155,7 +181,7 @@ mutate.grouped_ddf <- function(.data, ...) {
   seq_nms <- seq_along(nms)
 
   group_dim_names <- group_keys(.data)
-  group_dim <- list_sizes(group_dim_names)
+  group_dim <- list_sizes_unnamed(group_dim_names)
   size <- prod(group_dim)
 
   .data <- undibble(.data)
@@ -184,7 +210,7 @@ mutate.grouped_ddf <- function(.data, ...) {
 #' @export
 summarise.grouped_ddf <- function(.data, ...) {
   dim_names <- group_keys(.data)
-  dim <- list_sizes(dim_names)
+  dim <- list_sizes_unnamed(dim_names)
   size <- prod(dim)
 
   dots <- enquos(..., .named = TRUE)
