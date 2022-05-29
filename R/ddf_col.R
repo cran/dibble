@@ -5,7 +5,7 @@ new_ddf_col <- function(x, dim_names) {
 }
 
 as_ddf_col <- function(x, ...) {
-  if (is_tbl_ddf(x) || is_grouped_ddf(x)) {
+  if (is_tbl_ddf(x)) {
     stopifnot(
       ncol(x) == 1L
     )
@@ -22,6 +22,15 @@ is_ddf_col <- function(x) {
 #' @export
 as.array.ddf_col <- function(x, ...) {
   as.array(undibble(x))
+}
+
+#' @export
+as.matrix.ddf_col <- function(x, ...) {
+  if (vec_size(dimnames(x)) > 2) {
+    abort("The dimension of `x` must be 1 or 2.")
+  }
+
+  as.matrix(undibble(x))
 }
 
 #' @export
@@ -51,8 +60,14 @@ dim.ddf_col <- function(x) {
 #' @export
 as_tibble.ddf_col <- function(x, ...,
                               n = ".") {
-  as_tibble_dibble(x, ...,
-                   n = n)
+  as_tibble_dibble(x, n)
+}
+
+#' @export
+as.data.frame.ddf_col <- function(x, row.names = NULL, optional = FALSE, ...) {
+  as.data.frame(as_tibble(x, ...),
+                row.names = row.names,
+                optional = optional)
 }
 
 #' @export
@@ -112,6 +127,12 @@ relocate.ddf_col <- function(.data, ...) {
 #' @export
 rename.ddf_col <- function(.data, ...) {
   rename_dibble(.data, ...)
+}
+
+#' @importFrom dplyr filter
+#' @export
+filter.ddf_col <- function(.data, ..., .preserve = FALSE) {
+  filter_dibble(.data, ...)
 }
 
 

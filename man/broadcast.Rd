@@ -5,18 +5,15 @@
 \alias{broadcast.default}
 \alias{broadcast.ddf_col}
 \alias{broadcast.tbl_ddf}
-\alias{broadcast.grouped_ddf}
 \title{Broadcast to a new dimension}
 \usage{
-broadcast(x, dim_names, ...)
+broadcast(x, dim_names = NULL, ...)
 
-\method{broadcast}{default}(x, dim_names, ...)
+\method{broadcast}{default}(x, dim_names = NULL, ...)
 
 \method{broadcast}{ddf_col}(x, dim_names, ...)
 
 \method{broadcast}{tbl_ddf}(x, dim_names, ...)
-
-\method{broadcast}{grouped_ddf}(x, dim_names, ...)
 }
 \arguments{
 \item{x}{A dibble, vector, or array.}

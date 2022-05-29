@@ -1,14 +1,104 @@
+#' Matrix Multiplication
+#'
+#' Multiplies two matrices, if they are conformable.
+#'
+#' `%*%` overrides [`base::%*%`] to make it generic. The default method
+#' calls the base version.
+#'
+#' @param x Numeric or complex dibble, matrices or vectors.
+#' @param y Numeric or complex dibble, matrices or vectors.
+#'
+#' @return A dibble if x is a dibble. See [`base::%*%`] for the return
+#' value of the default method.
+#'
+#' @seealso [`base::%*%`]
+#'
 #' @export
-solve.tbl_ddf <- function(a, b, ...) {
-  if (is_missing(b)) {
-    wrap_dibble(solve)(a, ...)
-  } else {
-    wrap_dibble(solve)(a, b, ...)
-  }
+`%*%` <- function(x, y) {
+  UseMethod("%*%")
 }
 
 #' @export
-solve.grouped_ddf <- function(a, b, ...) {
+`%*%.default` <- function(x, y) {
+  base::`%*%`(x, y)
+}
+
+#' @export
+`%*%.tbl_ddf` <- function(x, y) {
+  matmult_dibble(x, y)
+}
+
+#' @export
+`%*%.ddf_col` <- function(x, y) {
+  matmult_dibble(x, y)
+}
+
+matmult_dibble <- function(x, y) {
+  x <- as_ddf_col(x)
+  y <- as_ddf_col(y)
+
+  dim_names_x <- dimnames(x)
+  dim_names_y <- dimnames(y)
+
+  axes_x <- names(dim_names_x)
+  axes_y <- names(dim_names_y)
+  axes_intersect <- intersect(axes_x, axes_y)
+
+  size_axes_x <- vec_size(axes_x)
+  size_axes_y <- vec_size(axes_y)
+
+  if (vec_size(axes_intersect) != 1L) {
+    abort("Just 1 dimension name must match.")
+  }
+
+  if (size_axes_x == 1L && size_axes_y == 1L) {
+    abort("Either `x` or `y` must be a matrix.")
+  }
+
+  if (size_axes_x == 1L) {
+    x <- t(as.matrix(x))
+    dim_names_x <- NULL
+  } else if (axes_x[[2L]] == axes_intersect) {
+    x <- as.matrix(x)
+    dim_names_x <- dim_names_x[1L]
+  } else {
+    x <- t(as.matrix(x))
+    dim_names_x <- dim_names_x[2L]
+  }
+
+  if (size_axes_y == 1L) {
+    y <- as.matrix(y)
+    dim_names_y <- NULL
+  } else if (axes_y[[1L]] == axes_intersect) {
+    y <- as.matrix(y)
+    dim_names_y <- dim_names_y[2L]
+  } else {
+    y <- t(as.matrix(y))
+    dim_names_y <- dim_names_y[1L]
+  }
+
+  new_dim_names <- purrr::compact(c(dim_names_x, dim_names_y))
+
+  out <- x %*% y
+  dim(out) <- list_sizes_unnamed(new_dim_names)
+
+  new_ddf_col(out, new_dim_names)
+}
+
+#' @export
+t.tbl_ddf <- function(x) {
+  new_tbl_ddf(purrr::modify(undibble(x), t),
+              rev(dimnames(x)))
+}
+
+#' @export
+t.ddf_col <- function(x) {
+  new_ddf_col(t(undibble(x)),
+              rev(dimnames(x)))
+}
+
+#' @export
+solve.tbl_ddf <- function(a, b, ...) {
   if (is_missing(b)) {
     wrap_dibble(solve)(a, ...)
   } else {
@@ -87,12 +177,6 @@ diag.tbl_ddf <- function(x, axes, ...) {
 
 #' @rdname diag
 #' @export
-diag.grouped_ddf <- function(x, axes, ...) {
-  wrap_dibble(diag)(x, axes, ...)
-}
-
-#' @rdname diag
-#' @export
 diag.ddf_col <- function(x, axes, ...) {
   old_dim_names <- dimnames(x)
   is_scalar_old_dim_names <- is_scalar_list(old_dim_names)
@@ -110,7 +194,7 @@ diag.ddf_col <- function(x, axes, ...) {
   } else {
     stopifnot(
       is_scalar_character(axes),
-      identical(old_dim_names[[1L]], old_dim_names[[2L]])
+      all_equal_dim_names(old_dim_names[[1L]], old_dim_names[[2L]])
     )
 
     new_dim_names <- old_dim_names[1L]
@@ -142,26 +226,130 @@ diag.ddf_col <- function(x, axes, ...) {
 
 #' @rdname diag
 #' @export
-`diag<-.grouped_ddf` <- function(x, ..., value) {
-  axes <- group_vars(x)
-  nm <- colnames(x)
-  x <- wrap_dibble(`diag<-`)(x, ..., value)
-  x <- dibble(!!nm := x)
-  group_by(x, dplyr::all_of(axes))
-}
-
-#' @rdname diag
-#' @export
 `diag<-.ddf_col` <- function(x, ..., value) {
   dim_names <- dimnames(x)
   dim_names_value <- dimnames(value)
   stopifnot(
     is_list(dim_names, 2L),
-    identical(dim_names[[1L]], dim_names[[2L]]),
+    all_equal_dim_names(dim_names[[1L]], dim_names[[2L]]),
     is.null(dim_names_value) || is_scalar_list(dim_names_value)
   )
 
   x <- as.array(x)
   diag(x) <- as.vector(broadcast(value, dim_names[1L]))
   new_ddf_col(x, dim_names)
+}
+
+#' Basic matrices and arrays
+#'
+#' Create basic matrices and arrays.
+#'
+#' These functions override base functions to make them generic. The default
+#' methods call the base versions.
+#'
+#' @param x An object.
+#' @param y A scalar integer.
+#' @param ... Other arguments passed on to methods.
+#'
+#' @return A dibble if x is a dibble. Otherwise, returns a matrix or an array.
+#'
+#' @export
+#' @name basic-matrices-arrays
+
+#' @rdname basic-matrices-arrays
+#' @export
+eye <- function(x, ...) {
+  UseMethod("eye")
+}
+
+#' @rdname basic-matrices-arrays
+#' @export
+eye.default <- function(x,
+                        y = x, ...) {
+  base::diag(nrow = x,
+             ncol = y)
+}
+
+#' @rdname basic-matrices-arrays
+#' @export
+eye.matrix <- function(x, ...) {
+  dim <- dim(x)
+  out <- base::diag(nrow = dim[[1L]],
+                    ncol = dim[[2L]])
+  dimnames(out) <- dimnames(x)
+  out
+}
+
+#' @rdname basic-matrices-arrays
+#' @export
+eye.ddf_col <- function(x, ...) {
+  wrap_ddf_col(eye, matrix = TRUE)(x, ...)
+}
+
+#' @rdname basic-matrices-arrays
+#' @export
+eye.tbl_ddf <- function(x, ...) {
+  wrap_dibble(eye)(x, ...)
+}
+
+#' @rdname basic-matrices-arrays
+#' @export
+ones <- function(x, ...) {
+  UseMethod("ones")
+}
+
+#' @rdname basic-matrices-arrays
+#' @export
+ones.default <- function(x,
+                         y = x, ...) {
+  matrix(1, x, y)
+}
+
+#' @rdname basic-matrices-arrays
+#' @export
+ones.array <- function(x, ...) {
+  array(1, dim(x), dimnames(x))
+}
+
+#' @rdname basic-matrices-arrays
+#' @export
+ones.ddf_col <- function(x, ...) {
+  wrap_ddf_col(ones)(x, ...)
+}
+
+#' @rdname basic-matrices-arrays
+#' @export
+ones.tbl_ddf <- function(x, ...) {
+  wrap_dibble(ones)(x, ...)
+}
+
+#' @rdname basic-matrices-arrays
+#' @export
+zeros <- function(x, ...) {
+  UseMethod("zeros")
+}
+
+#' @rdname basic-matrices-arrays
+#' @export
+zeros.default <- function(x,
+                          y = x, ...) {
+  matrix(0, x, y)
+}
+
+#' @rdname basic-matrices-arrays
+#' @export
+zeros.array <- function(x, ...) {
+  array(0, dim(x), dimnames(x))
+}
+
+#' @rdname basic-matrices-arrays
+#' @export
+zeros.ddf_col <- function(x, ...) {
+  wrap_ddf_col(zeros)(x, ...)
+}
+
+#' @rdname basic-matrices-arrays
+#' @export
+zeros.tbl_ddf <- function(x, ...) {
+  wrap_dibble(zeros)(x, ...)
 }

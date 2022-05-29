@@ -11,15 +11,20 @@ is_tbl_ddf <- function(x) {
 #' @export
 as.list.tbl_ddf <- function(x, ...) {
   dim_names <- dimnames(x)
-  lapply(undibble(x),
-         function(x) {
-           new_ddf_col(x, dim_names)
-         })
+  purrr::modify(undibble(x),
+                function(x) {
+                  new_ddf_col(x, dim_names)
+                })
 }
 
 #' @export
 as.array.tbl_ddf <- function(x, ...) {
   wrap_dibble(as.array)(x, ...)
+}
+
+#' @export
+as.matrix.tbl_ddf <- function(x, ...) {
+  wrap_dibble(as.matrix)(x, ...)
 }
 
 #' @export
@@ -44,8 +49,16 @@ dim.tbl_ddf <- function(x) {
 
 #' @importFrom tibble as_tibble
 #' @export
-as_tibble.tbl_ddf <- function(x, ...) {
-  as_tibble_dibble(x, ...)
+as_tibble.tbl_ddf <- function(x, ...,
+                              n = NULL) {
+  as_tibble_dibble(x, n)
+}
+
+#' @export
+as.data.frame.tbl_ddf <- function(x, row.names = NULL, optional = FALSE, ...) {
+  as.data.frame(as_tibble(x, ...),
+                row.names = row.names,
+                optional = optional)
 }
 
 #' @export
@@ -135,12 +148,6 @@ mutate.tbl_ddf <- function(.data, ...) {
   new_tbl_ddf(.data, dim_names)
 }
 
-#' @importFrom dplyr ungroup
-#' @export
-ungroup.tbl_ddf <- function(x, ...) {
-  x
-}
-
 #' @importFrom dplyr select
 #' @export
 select.tbl_ddf <- function(.data, ...) {
@@ -160,11 +167,17 @@ rename.tbl_ddf <- function(.data, ...) {
   rename_dibble(.data, ...)
 }
 
+#' @importFrom dplyr filter
+#' @export
+filter.tbl_ddf <- function(.data, ..., .preserve = FALSE) {
+  filter_dibble(.data, ...)
+}
+
 
 
 # Printing ----------------------------------------------------------------
 
 #' @export
 print.tbl_ddf <- function(x, n = NULL, ...) {
-  print_dibble(x, n, ...)
+  print_dibble(x, n)
 }

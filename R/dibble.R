@@ -17,9 +17,9 @@
 #' @export
 dibble <- function(...,
                    .dim_names = NULL) {
-  dots <- list2(...)
+  args <- list2(...)
 
-  old_dim_names <- union_dim_names(!!!lapply(unname(dots), dimnames))
+  old_dim_names <- union_dim_names(purrr::map(unname(args), dimnames))
   new_dim_names <- as_dim_names(.dim_names, old_dim_names)
 
   fun <- function(x) {
@@ -33,37 +33,35 @@ dibble <- function(...,
     undibble(broadcast(x, new_dim_names))
   }
 
-  dots <- mapply(dots, names2(dots),
-                 FUN = function(x, nm) {
-                   if (is_tbl_ddf(x) || is_grouped_ddf(x)) {
-                     x <- lapply(as.list(ungroup(x)), fun)
+  args <- purrr::map2(unname(args), names2(args),
+                      function(x, nm) {
+                        if (is_tbl_ddf(x)) {
+                          x <- purrr::modify(as.list(x), fun)
 
-                     if (nm != "") {
-                       stopifnot(
-                         is_scalar_list(x)
-                       )
+                          if (nm != "") {
+                            stopifnot(
+                              is_scalar_list(x)
+                            )
 
-                       names(x) <- nm
-                     }
-                     x
-                   } else {
-                     x <- list(fun(x))
-                     names(x) <- nm
-                     x
-                   }
-                 },
-                 SIMPLIFY = FALSE,
-                 USE.NAMES = FALSE)
-  dots <- vec_c(!!!dots)
+                            names(x) <- nm
+                          }
+                          x
+                        } else {
+                          x <- list(fun(x))
+                          names(x) <- nm
+                          x
+                        }
+                      })
+  args <- vec_c(!!!args)
 
-  if (!is_named(dots)) {
+  if (!is_named(args)) {
     stopifnot(
-      is_scalar_list(dots)
+      is_scalar_list(args)
     )
 
-    new_ddf_col(dots[[1L]], new_dim_names)
+    new_ddf_col(args[[1L]], new_dim_names)
   } else {
-    new_tbl_ddf(dots, new_dim_names)
+    new_tbl_ddf(args, new_dim_names)
   }
 }
 
@@ -73,12 +71,24 @@ dibble <- function(...,
 #'
 #' @param x A data frame or a dibble.
 #' @param ... Variables.
+#' @param .names_sep Passed to `tidyr::pack()`.
 #'
 #' @return A dibble.
 #'
 #' @export
-dibble_by <- function(x, ...) {
-  as_dibble(dplyr::rowwise(x, ...))
+dibble_by <- function(x, ...,
+                      .names_sep = NULL) {
+  args <- enquos(...)
+
+  # pack data
+  nms <- names2(args)
+  loc <- nms != ""
+  x <- tidyr::pack(x, !!!args[loc],
+                   .names_sep = .names_sep)
+  args[loc] <- as_quosures(nms[loc])
+  args <- unname(args)
+
+  as_dibble(dplyr::rowwise(x, !!!args))
 }
 
 #' Coerce an object to a dibble
@@ -110,24 +120,22 @@ as_dibble.default <- function(x, ...) {
 #' @export
 as_dibble.rowwise_df <- function(x, ...) {
   axes <- dplyr::group_vars(x)
-  x <- ungroup(x)
+  x <- dplyr::ungroup(x)
   haystack <- x[axes]
   stopifnot(
     !vec_duplicate_any(haystack)
   )
 
-  dim_names <- lapply(haystack, vec_unique)
+  dim_names <- purrr::map(haystack, unique)
   dim <- list_sizes_unnamed(dim_names)
 
-  needles <- expand.grid(dim_names,
-                         KEEP.OUT.ATTRS = FALSE,
-                         stringsAsFactors = FALSE)
+  needles <- expand_grid_col_major(!!!dim_names)
   x <- vec_slice(x[!names(x) %in% axes],
                  vec_match(needles, haystack))
-  x <- lapply(x,
-              function(x) {
-                array(x, dim)
-              })
+  x <- purrr::map(x,
+                  function(x) {
+                    array(x, dim)
+                  })
   new_tbl_ddf(x, dim_names)
 }
 
@@ -149,12 +157,6 @@ as_dibble.tbl_ddf <- function(x, ...) {
   x
 }
 
-#' @rdname as_dibble
-#' @export
-as_dibble.grouped_ddf <- function(x, ...) {
-  ungroup(x)
-}
-
 #' Test if the object is a dibble
 #'
 #' @param x An object.
@@ -163,18 +165,12 @@ as_dibble.grouped_ddf <- function(x, ...) {
 #'
 #' @export
 is_dibble <- function(x) {
-  is_ddf_col(x) || is_tbl_ddf(x) || is_grouped_ddf(x)
-}
-
-are_dibble <- function(x) {
-  vapply(x, is_dibble,
-         logical(1))
+  is_ddf_col(x) || is_tbl_ddf(x)
 }
 
 undibble <- function(x) {
   class(x) <- NULL
   attr(x, "dim_names") <- NULL
-  attr(x, "group_dim_names") <- NULL
   x
 }
 
@@ -183,44 +179,21 @@ dimnames_dibble <- function(x) {
 }
 
 `dimnames<-_dibble` <- function(x, value) {
-  if (is_grouped_ddf(x)) {
-    group_dim_names <- group_keys(x)
+  dim_names <- dimnames(x)
+  stopifnot(
+    list_sizes(value) == list_sizes(dim_names)
+  )
 
-    loc <- seq_along(group_dim_names)
-    new_group_dim_names <- value[loc]
-    new_dim_names <- value[-loc]
-    stopifnot(
-      list_sizes(new_group_dim_names) == list_sizes(group_dim_names)
-    )
-
-    x <- lapply(undibble(x),
-                function(x) {
-                  lapply(x,
-                         function(x) {
-                           dimnames(x) <- new_dim_names
-                           x
-                         })
-                })
-    new_grouped_ddf(x, new_group_dim_names)
-  } else {
-    dim_names <- dimnames(x)
-    stopifnot(
-      list_sizes(value) == list_sizes(dim_names)
-    )
-
-    attr(x, "dim_names") <- value
-    x
-  }
+  attr(x, "dim_names") <- value
+  x
 }
 
 dim_dibble <- function(x) {
   list_sizes_unnamed(dimnames(x))
 }
 
-as_tibble_dibble <- function(x, ..., n) {
-  dim_names <- rev(exec(expand.grid, !!!rev(dimnames(x)),
-                        KEEP.OUT.ATTRS = FALSE,
-                        stringsAsFactors = FALSE))
+as_tibble_dibble <- function(x, n) {
+  dim_names <- tidyr::expand_grid(!!!dimnames(x))
 
   fun <- function(x) {
     as.vector(aperm(as.array(x)))
@@ -231,15 +204,20 @@ as_tibble_dibble <- function(x, ..., n) {
                      !!n := fun(undibble(x)),
                      .name_repair = "check_unique")
   } else {
-    out <- vec_cbind(dim_names, !!!lapply(undibble(x), fun),
+    out <- purrr::modify(undibble(x), fun)
+
+    if (!is.null(n)) {
+      stopifnot(
+        vec_size(out) == vec_size(n)
+      )
+
+      names(n)[names2(n) == ""] <- names(out)[!names(out) %in% names2(n)]
+      names(out) <- n[names(out)]
+    }
+
+    out <- vec_cbind(dim_names, !!!out,
                      .name_repair = "check_unique")
 
-  }
-
-  out <- as_tibble(out, ...)
-
-  if (is_grouped_ddf(x)) {
-    out <- group_by(out, dplyr::all_of(group_vars(x)))
   }
   out
 }
@@ -262,10 +240,10 @@ aperm_dibble <- function(a, perm, ...) {
     a <- aperm(as.array(a), perm, ...)
     new_ddf_col(a, dim_names)
   } else {
-    a <- lapply(undibble(a),
-                function(x) {
-                  aperm(x, perm, ...)
-                })
+    a <- purrr::modify(undibble(a),
+                       function(x) {
+                         aperm(x, perm, ...)
+                       })
     new_tbl_ddf(a, dim_names)
   }
 }
@@ -275,72 +253,50 @@ aperm_dibble <- function(a, perm, ...) {
 # Verbs -------------------------------------------------------------------
 
 slice_dibble <- function(.data, ...) {
-  loc <- lapply(list2(...),
-                function(x) {
-                  x %||% missing_arg()
-                })
-  nms <- names2(loc)
+  locs <- purrr::modify(list2(...),
+                        function(x) {
+                          x %||% missing_arg()
+                        })
+  nms <- names2(locs)
 
   dim_names <- dimnames(.data)
   axes <- names(dim_names)
 
   stopifnot(
-    length(loc) == length(dim_names),
+    vec_size(locs) == vec_size(dim_names),
     nms == "" | nms %in% axes
   )
 
-  names(loc)[nms == ""] <- axes[!axes %in% nms]
-  loc <- loc[axes]
-  dim_names <- mapply(dim_names, loc,
-                      FUN = `[`,
-                      SIMPLIFY = FALSE)
+  names(locs)[nms == ""] <- axes[!axes %in% nms]
+  locs <- locs[axes]
+
+  dim_names <- purrr::map2(dim_names, locs,
+                           function(x, i) {
+                             if (is_missing(i)) {
+                               x
+                             } else {
+                               vec_slice(x, i)
+                             }
+                           })
   names(dim_names) <- axes
 
   if (is_ddf_col(.data)) {
-    new_ddf_col(exec(`[`, .data, !!!loc,
+    new_ddf_col(exec(`[`, .data, !!!locs,
                      drop = FALSE),
                 dim_names = dim_names)
   } else if (is_tbl_ddf(.data)) {
-    new_tbl_ddf(lapply(undibble(.data),
-                       function(x) {
-                         exec(`[`, x, !!!loc,
-                              drop = FALSE)
-                       }),
+    new_tbl_ddf(purrr::modify(undibble(.data),
+                              function(x) {
+                                exec(`[`, x, !!!locs,
+                                     drop = FALSE)
+                              }),
                 dim_names = dim_names)
-  } else if (is_grouped_ddf(.data)) {
-    group_dim_names <- group_keys(.data)
-    group_axes <- names(group_dim_names)
-    groups <- seq_along(group_dim_names)
-
-    loc_groups <- loc[groups]
-    loc <- loc[-groups]
-
-    group_dim_names <- mapply(group_dim_names, loc_groups,
-                              FUN = function(x, i) {
-                                x[i]
-                              },
-                              SIMPLIFY = FALSE)
-    names(group_dim_names) <- group_axes
-
-    .data <- lapply(undibble(.data),
-                    function(x) {
-                      x <- exec(`[`, x, !!!loc_groups,
-                                drop = FALSE)
-                      lapply(x,
-                             function(x) {
-                               slice(x, !!!loc)
-                             })
-                    })
-    new_grouped_ddf(.data, group_dim_names)
   }
 }
 
 select_dibble <- function(.data, ..., .relocate = FALSE) {
   dim_names <- dimnames(.data)
   axes <- names(dim_names)
-
-  group_dim_names <- group_keys(.data)
-  group_axes <- names(group_dim_names)
 
   if (is_ddf_col(.data)) {
     data <- dim_names
@@ -353,7 +309,7 @@ select_dibble <- function(.data, ..., .relocate = FALSE) {
     vec_match(c(intersect(x, y), setdiff(y, x)), y)
   }
 
-  if (is_tbl_ddf(.data) || is_grouped_ddf(.data)) {
+  if (is_tbl_ddf(.data)) {
     if (.relocate) {
       meas_names <- colnames(.data)
       .data <- .data[perm_match(nms, meas_names)]
@@ -362,26 +318,8 @@ select_dibble <- function(.data, ..., .relocate = FALSE) {
     }
   }
 
-  if (is_grouped_ddf(.data)) {
-    perm_groups <- perm_match(nms, group_axes)
-    axes <- setdiff(axes, group_axes)
-    perm <- perm_match(nms, axes)
-
-    group_dim_names <- group_dim_names[perm_groups]
-    .data <- lapply(undibble(.data),
-                    function(x) {
-                      x <- aperm(x, perm_groups)
-                      lapply(x,
-                             function(x) {
-                               aperm(x, perm)
-                             })
-                    })
-    new_grouped_ddf(.data, group_dim_names)
-
-  } else if (is_tbl_ddf(.data) || is_ddf_col(.data)) {
-    perm <- perm_match(nms, axes)
-    aperm(.data, perm)
-  }
+  perm <- perm_match(nms, axes)
+  aperm(.data, perm)
 }
 
 rename_dibble <- function(.data, ...) {
@@ -400,11 +338,72 @@ rename_dibble <- function(.data, ...) {
 
   names(dimnames(.data)) <- nms[axes]
 
-  if (is_tbl_ddf(.data) || is_grouped_ddf(.data)) {
+  if (is_tbl_ddf(.data)) {
     meas_names <- colnames(.data)
     names(.data) <- nms[meas_names]
   }
   .data
+}
+
+#' @importFrom dplyr filter
+#' @export
+dplyr::filter
+
+filter_dibble <- function(.data, ...) {
+  args <- enquos(...)
+  dim_names <- dimnames(.data)
+  axes <- names(dim_names)
+  idxs <- purrr::map_int(unname(args),
+                         function(x) {
+                           find_index_check(x, axes)
+                         })
+
+  size <- vec_size(dim_names)
+  locs <- vec_init(list(), vec_size(dim_names))
+
+  for (i in seq_along(args)) {
+    idx <- idxs[[i]]
+    loc <- locs[[idx]]
+
+    new_loc <- eval_tidy(args[[i]], dim_names)
+    new_loc <- new_loc & !is.na(new_loc)
+
+    if (is.null(loc)) {
+      locs[[idx]] <- new_loc
+    } else {
+      locs[[idx]] <- loc & new_loc
+    }
+  }
+  slice(.data, !!!locs)
+}
+
+find_index_check <- function(x, names) {
+  out <- find_index(quo_get_expr(x), names)
+  stopifnot(
+    vec_size(out) == 1
+  )
+  out
+}
+
+find_index <- function(x, names) {
+  if (is_atomic(x)) {
+    integer()
+  } else if (is_symbol(x) || x[[1L]] == "$") {
+    which(head_symbol(x) == names)
+  } else {
+    stopifnot(is_call(x))
+
+    out <- purrr::map(x[-1L], find_index,
+                      names = names)
+    vec_c(!!!out)
+  }
+}
+
+head_symbol <- function(x) {
+  while (!is_symbol(x)) {
+    x <- x[[2L]]
+  }
+  x
 }
 
 # Printing ----------------------------------------------------------------
@@ -416,14 +415,9 @@ print_dibble <- function(x, n, ...) {
   size_dim <- prod(dim)
 
   meas_names <- colnames(x)
-  size_meas <- big_mark(length(meas_names))
+  size_meas <- big_mark(vec_size(meas_names))
 
-  x_head <- head_dibble(x, n)
-  if (is_grouped_ddf(x_head)) {
-    x_head <- ungroup(x_head)
-  }
-
-  df <- new_data_frame(as_tibble(x_head),
+  df <- new_data_frame(as_tibble(head_dibble(x, n)),
                        class = c("tbl_dibble", "tbl"))
 
   dim_sum <- c(`Dimensions` = commas(paste0(axes, " [", big_mark(dim), "]")))
@@ -436,13 +430,6 @@ print_dibble <- function(x, n, ...) {
                                     sep = " x "),
                  dim_sum,
                  `Measures` = commas(meas_names))
-
-    if (is_grouped_ddf(x)) {
-      group_dim_names <- group_keys(x)
-      size_groups <- big_mark(prod(list_sizes_unnamed(group_dim_names)))
-      tbl_sum <- c(tbl_sum,
-                   Groups = paste0(commas(names(group_dim_names)), " [", size_groups, "]"))
-    }
 
     attr(df, "tbl_sum") <- tbl_sum
   }
@@ -458,7 +445,7 @@ head_dibble <- function(x, n) {
   n <- n %||% 21
   dim <- rev(dim(x))
 
-  loc <- rep(1, length(dim))
+  loc <- rep(1, vec_size(dim))
   i <- cumprod(dim) < n
   dim <- dim[i]
 
@@ -467,7 +454,7 @@ head_dibble <- function(x, n) {
   if (!all(i)) {
     loc[[which(!i)[[1L]]]] <- ceiling(n / prod(dim))
   }
-  loc <- rev(lapply(loc, seq_len))
+  loc <- rev(purrr::map(loc, seq_len))
 
   slice(x, !!!loc)
 }
