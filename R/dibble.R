@@ -129,7 +129,7 @@ as_dibble.rowwise_df <- function(x, ...) {
   dim_names <- purrr::map(haystack, unique)
   dim <- list_sizes_unnamed(dim_names)
 
-  needles <- expand_grid_col_major(!!!dim_names)
+  needles <- expand_grid_col_major(dim_names)
   x <- vec_slice(x[!names(x) %in% axes],
                  vec_match(needles, haystack))
   x <- purrr::map(x,
@@ -238,13 +238,13 @@ aperm_dibble <- function(a, perm, ...) {
 
   if (is_ddf_col(a)) {
     a <- aperm(as.array(a), perm, ...)
-    new_ddf_col(a, dim_names)
+    new_ddf_col(a, new_dim_names)
   } else {
     a <- purrr::modify(undibble(a),
                        function(x) {
                          aperm(x, perm, ...)
                        })
-    new_tbl_ddf(a, dim_names)
+    new_tbl_ddf(a, new_dim_names)
   }
 }
 
@@ -380,7 +380,7 @@ filter_dibble <- function(.data, ...) {
 find_index_check <- function(x, names) {
   out <- find_index(quo_get_expr(x), names)
   stopifnot(
-    vec_size(out) == 1
+    vec_size(out) == 1L
   )
   out
 }
@@ -401,7 +401,13 @@ find_index <- function(x, names) {
 
 head_symbol <- function(x) {
   while (!is_symbol(x)) {
-    x <- x[[2L]]
+    lhs <- f_lhs(x)
+
+    if (lhs == ".data") {
+      x <- f_rhs(x)
+    } else {
+      x <- lhs
+    }
   }
   x
 }

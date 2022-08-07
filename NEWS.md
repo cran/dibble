@@ -1,3 +1,9 @@
+# dibble 0.2.1
+
+* Broadcasts with transpositions are now warned.
+* Resolve warning when checking equality of axis names.
+* Fixed few bugs.
+
 # dibble 0.2.0
 
 * Override `base::%*%` and support matrix multiplications for dibbles.
