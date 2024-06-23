@@ -1,30 +1,28 @@
 test_that("rows", {
-  library(dplyr)
-
   check_rows <- function(x, y, axes) {
     # check insert
-    expect_error(x %>%
-                   rows_insert(y))
+    expect_error(x |>
+                   dplyr::rows_insert(y))
 
     check_insert <- function(x) {
-      x_insert1 <- x %>%
-        rows_insert(y,
-                    conflict = "ignore") %>%
-        broadcast(axes) %>%
-        as_tibble(n = "x")
+      x_insert1 <- x |>
+        dplyr::rows_insert(y,
+                           conflict = "ignore") |>
+        broadcast(axes) |>
+        tibble::as_tibble(n = "x")
 
-      x_insert2 <- x %>%
-        as_tibble(n = "x") %>%
-        rows_insert(y %>%
-                      as_tibble(n = "x"),
-                    by = axes,
-                    conflict = "ignore")
+      x_insert2 <- x |>
+        tibble::as_tibble(n = "x") |>
+        dplyr::rows_insert(y |>
+                             tibble::as_tibble(n = "x"),
+                           by = axes,
+                           conflict = "ignore")
 
-      x_insert <- x_insert1 %>%
-        rename(x1 = x) %>%
-        left_join(x_insert2 %>%
-                    rename(x2 = x),
-                  by = axes)
+      x_insert <- x_insert1 |>
+        dplyr::rename(x1 = x) |>
+        dplyr::left_join(x_insert2 |>
+                           dplyr::rename(x2 = x),
+                         by = axes)
 
       expect_equal(x_insert$x1, x_insert$x2)
     }
@@ -32,28 +30,28 @@ test_that("rows", {
     check_insert(x$x)
 
     # check update
-    expect_error(x %>%
-                   rows_update(y))
+    expect_error(x |>
+                   dplyr::rows_update(y))
 
     check_update <- function(x) {
-      x_update1 <- x %>%
-        rows_update(y,
-                    unmatched = "ignore") %>%
-        broadcast(axes) %>%
-        as_tibble(n = "x")
+      x_update1 <- x |>
+        dplyr::rows_update(y,
+                           unmatched = "ignore") |>
+        broadcast(axes) |>
+        tibble::as_tibble(n = "x")
 
-      x_update2 <- x %>%
-        as_tibble(n = "x") %>%
-        rows_update(y %>%
-                      as_tibble(n = "x"),
-                    by = axes,
-                    unmatched = "ignore")
+      x_update2 <- x |>
+        tibble::as_tibble(n = "x") |>
+        dplyr::rows_update(y |>
+                             tibble::as_tibble(n = "x"),
+                           by = axes,
+                           unmatched = "ignore")
 
-      x_update <- x_update1 %>%
-        rename(x1 = x) %>%
-        left_join(x_update2 %>%
-                    rename(x2 = x),
-                  by = axes)
+      x_update <- x_update1 |>
+        dplyr::rename(x1 = x) |>
+        dplyr::left_join(x_update2 |>
+                           dplyr::rename(x2 = x),
+                         by = axes)
 
       expect_equal(x_update$x1, x_update$x2)
     }
@@ -61,28 +59,28 @@ test_that("rows", {
     check_update(x$x)
 
     # check patch
-    expect_error(x %>%
-                   rows_patch(y))
+    expect_error(x |>
+                   dplyr::rows_patch(y))
 
     check_patch <- function(x) {
-      x_patch1 <- x %>%
-        rows_patch(y,
-                   unmatched = "ignore") %>%
-        broadcast(axes) %>%
-        as_tibble(n = "x")
+      x_patch1 <- x |>
+        dplyr::rows_patch(y,
+                          unmatched = "ignore") |>
+        broadcast(axes) |>
+        tibble::as_tibble(n = "x")
 
-      x_patch2 <- x %>%
-        as_tibble(n = "x") %>%
-        rows_patch(y %>%
-                     as_tibble(n = "x"),
-                   by = axes,
-                   unmatched = "ignore")
+      x_patch2 <- x |>
+        tibble::as_tibble(n = "x") |>
+        dplyr::rows_patch(y |>
+                            tibble::as_tibble(n = "x"),
+                          by = axes,
+                          unmatched = "ignore")
 
-      x_patch <- x_patch1 %>%
-        rename(x1 = x) %>%
-        left_join(x_patch2 %>%
-                    rename(x2 = x),
-                  by = axes)
+      x_patch <- x_patch1 |>
+        dplyr::rename(x1 = x) |>
+        dplyr::left_join(x_patch2 |>
+                           dplyr::rename(x2 = x),
+                         by = axes)
 
       expect_equal(x_patch$x1, x_patch$x2)
     }
@@ -90,27 +88,27 @@ test_that("rows", {
     check_patch(x$x)
 
     # check upsert
-    expect_silent(x %>%
-                    rows_upsert(y) %>%
+    expect_silent(x |>
+                    dplyr::rows_upsert(y) |>
                     broadcast(axes))
 
     check_upsert <- function(x) {
-      x_upsert1 <- x %>%
-        rows_upsert(y) %>%
-        broadcast(axes) %>%
-        as_tibble(n = "x")
+      x_upsert1 <- x |>
+        dplyr::rows_upsert(y) |>
+        broadcast(axes) |>
+        tibble::as_tibble(n = "x")
 
-      x_upsert2 <- x %>%
-        as_tibble(n = "x") %>%
-        rows_upsert(y %>%
-                      as_tibble(n = "x"),
-                    by = axes)
+      x_upsert2 <- x |>
+        tibble::as_tibble(n = "x") |>
+        dplyr::rows_upsert(y |>
+                             tibble::as_tibble(n = "x"),
+                           by = axes)
 
-      x_upsert <- x_upsert1 %>%
-        rename(x1 = x) %>%
-        left_join(x_upsert2 %>%
-                    rename(x2 = x),
-                  by = axes)
+      x_upsert <- x_upsert1 |>
+        dplyr::rename(x1 = x) |>
+        dplyr::left_join(x_upsert2 |>
+                           dplyr::rename(x2 = x),
+                         by = axes)
 
       expect_equal(x_upsert$x1, x_upsert$x2)
     }

@@ -57,26 +57,26 @@ is_dim_names <- function(x) {
 }
 
 union_dim_names <- function(x) {
-  x <- vec_c(!!!x)
+  x <- list_unchop(x)
   nms <- names(x)
   nms_unique <- unique(nms)
   out <- purrr::map(nms_unique,
                     function(nm_unique) {
-                      unique(vec_c(!!!unname(x[nms == nm_unique])))
+                      unique(list_unchop(unname(x[nms == nm_unique])))
                     })
   names(out) <- nms_unique
   out
 }
 
 intersect_dim_names <- function(x) {
-  purrr::modify(purrr::transpose(x),
+  purrr::modify(purrr::list_transpose(x),
                 function(x) {
                   purrr::reduce(x, set_intersect)
                 })
 }
 
 diff_dim_names <- function(x) {
-  purrr::modify(purrr::transpose(x),
+  purrr::modify(purrr::list_transpose(x),
                 function(x) {
                   purrr::reduce(x, set_diff)
                 })

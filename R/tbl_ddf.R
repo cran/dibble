@@ -1,7 +1,8 @@
-new_tbl_ddf <- function(x, dim_names) {
+new_tbl_ddf <- function(x, dim_names,
+                        class = character()) {
   structure(x,
             dim_names = dim_names,
-            class = "tbl_ddf")
+            class = c(setdiff(class, "tbl_ddf"), "tbl_ddf"))
 }
 
 is_tbl_ddf <- function(x) {
@@ -11,9 +12,11 @@ is_tbl_ddf <- function(x) {
 #' @export
 as.list.tbl_ddf <- function(x, ...) {
   dim_names <- dimnames(x)
+  class <- class(x)
   purrr::modify(undibble(x),
                 function(x) {
-                  new_ddf_col(x, dim_names)
+                  new_ddf_col(x, dim_names,
+                              class = setdiff(class, "tbl_ddf"))
                 })
 }
 
@@ -97,7 +100,8 @@ is.nan.tbl_ddf <- function(x) {
 
 #' @export
 `[.tbl_ddf` <- function(x, i) {
-  new_tbl_ddf(NextMethod(), dimnames(x))
+  new_tbl_ddf(NextMethod(), dimnames(x),
+              class = class(x))
 }
 
 #' @export
@@ -130,6 +134,7 @@ mutate.tbl_ddf <- function(.data, ...) {
   nms <- names(dots)
 
   dim_names <- dimnames(.data)
+  class <- class(.data)
   data <- as.list(.data)
 
   .data <- undibble(.data)
@@ -145,7 +150,8 @@ mutate.tbl_ddf <- function(.data, ...) {
     data[[nm]] <- data_nm
     .data[[nm]] <- undibble(data_nm)
   }
-  new_tbl_ddf(.data, dim_names)
+  new_tbl_ddf(.data, dim_names,
+              class = class)
 }
 
 #' @importFrom dplyr select
@@ -179,5 +185,40 @@ filter.tbl_ddf <- function(.data, ..., .preserve = FALSE) {
 
 #' @export
 print.tbl_ddf <- function(x, n = NULL, ...) {
-  print_dibble(x, n)
+  print_dibble(x,
+               n = n,
+               ...)
+}
+
+#' @export
+format.tbl_ddf <- function(x, n = NULL, ...) {
+  format_dibble(x,
+                n = n,
+                ...)
+}
+
+#' @export
+tbl_format_setup.tbl_ddf <- function(x, width = NULL, ..., n = NULL, max_extra_cols = NULL, max_footer_lines = NULL, focus = NULL) {
+  tbl_format_setup_dibble(x,
+                          width = width,
+                          ...,
+                          n = n,
+                          max_extra_cols = max_extra_cols,
+                          max_footer_lines = max_footer_lines,
+                          focus = focus)
+}
+
+#' @export
+tbl_format_header.tbl_ddf <- function(x, setup, ...) {
+  tbl_format_header_dibble(x, setup, ...)
+}
+
+#' @export
+tbl_format_body.tbl_ddf <- function(x, setup, ...) {
+  tbl_format_body_dibble(x, setup, ...)
+}
+
+#' @export
+tbl_format_footer.tbl_ddf <- function(x, setup, ...) {
+  tbl_format_footer_dibble(x, setup, ...)
 }

@@ -13,7 +13,7 @@ rows_upsert_dibble <- function(type = c("insert", "update", "patch", "upsert"),
   if (type == "insert") {
     if (conflict == "error") {
       stopifnot(
-        purrr::some(intersect_dim_names(list(dim_names_x, dim_names_y)), is_empty)
+        purrr::some(intersect_dim_names(list(dim_names_x, dim_names_y)), vec_is_empty)
       )
     }
   } else if (type %in% c("update", "patch")) {
@@ -36,6 +36,7 @@ rows_upsert_dibble <- function(type = c("insert", "update", "patch", "upsert"),
     )
     is_ddf_col_new <- FALSE
   }
+  class <- class(x)
 
   # locations of x to new
   brdcst_x <- broadcast_dim_names_warn(dim_names_x, new_dim_names)
@@ -107,9 +108,11 @@ rows_upsert_dibble <- function(type = c("insert", "update", "patch", "upsert"),
   }
 
   if (is_ddf_col_new) {
-    new_ddf_col(new, new_dim_names)
+    new_ddf_col(new, new_dim_names,
+                class = class)
   } else {
-    new_tbl_ddf(new, new_dim_names)
+    new_tbl_ddf(new, new_dim_names,
+                class = class)
   }
 }
 

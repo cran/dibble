@@ -25,7 +25,8 @@ wrap_ddf_col <- function(f, matrix = FALSE) {
 
   function(x, ...) {
     new_ddf_col(f(as(x), ...),
-                dim_names = dimnames(x))
+                dim_names = dimnames(x),
+                class = class(x))
   }
 }
 
@@ -52,9 +53,23 @@ all_equal_dim_names <- function(target, current) {
   if (identical(names(target), names(current))) {
     all(purrr::map2_lgl(target, current,
                         function(target, current) {
-                          isTRUE(all.equal(target, current))
+                          vec_size(target) == vec_size(current) &&
+                            all(target == current)
                         }))
   } else {
     FALSE
+  }
+}
+
+# From pillar:::get_n_print()
+get_n_print <- function(n, rows) {
+  if (!is.null(n) && n >= 0) {
+    return(n)
+  }
+  if (is.na(rows) || rows > 20) {
+    10
+  }
+  else {
+    rows
   }
 }
